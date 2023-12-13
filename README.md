@@ -29,3 +29,7 @@ async function bootstrap() {
 }
 bootstrap();
 ```
+then run
+```bash
+$ node index.js
+```
