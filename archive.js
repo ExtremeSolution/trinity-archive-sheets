@@ -6,7 +6,7 @@ function archiveSheets() {
   const spreadsheetId = process.env.SPREADSHEET_ID;
 
   async function copyInfo() {
-    const ss = sheets.spreadsheets;
+    const spreadsheets = sheets.spreadsheets;
 
     const copySheets = [
       { name: "Job", range: "AV" },
@@ -40,7 +40,7 @@ function archiveSheets() {
         console.log(
           `Trying to get data of a copy sheet with name ${copySheet.name}`
         );
-        const sourceData = await ss.values.get({
+        const sourceData = await spreadsheets.values.get({
           auth: authClient,
           spreadsheetId,
           range: `${copySheet.name}!A2:${copySheet.range}`,
@@ -50,12 +50,12 @@ function archiveSheets() {
             sourceData?.data?.values?.length || 0
           }`
         );
-        const copyValues = sourceData.data?.values;
+        let copyValues = sourceData.data?.values;
 
         if (!copyValues?.length) {
           console.log(`The ${copySheet.name} has no values`);
           if (copySheet.name == "Route") {
-            await copyFormula(ss, authClient, spreadsheetId);
+            await copyFormula(spreadsheets, authClient, spreadsheetId);
           }
           console.log(
             "---------------------------------------------------------------"
@@ -68,7 +68,7 @@ function archiveSheets() {
           console.log(
             `Trying to get data of paste sheet with name ${pasteSheet}`
           );
-          const pasteData = await ss.values.get({
+          const pasteData = await spreadsheets.values.get({
             auth: authClient,
             spreadsheetId,
             range: `${pasteSheet}!A2:${copySheet.range}`,
@@ -78,42 +78,30 @@ function archiveSheets() {
             : 1 + 1;
           console.log(`${pasteSheet} contains ${lastRow} rows`);
 
-          if (lastRow > 2)
-            copyValues.unshift(
-              pasteData.data.values[pasteData.data.values.length - 1]
-            );
           const body = {
             values: copyValues,
-            range: `${pasteSheet}!A${lastRow}:${copySheet.range}`,
+            range: pasteSheet,
           };
 
           console.log(
             `Trying to update ${pasteSheet} with updated rows: ${sourceData?.data?.values?.length}`
           );
-          await ss.values
-            .update({
-              auth: authClient,
-              spreadsheetId,
-              range: body.range,
-              valueInputOption: "USER_ENTERED",
-              requestBody: body,
-            })
-            .then(data => {
-              console.log("updatedRows: ", data.data.updatedRows);
-              console.log("updatedRange: ", data.data.updatedRange);
-            })
-            .catch(err => {
-              console.log("Error:  ", err);
-            });
+          await spreadsheets.values.append({
+            auth: authClient,
+            spreadsheetId,
+            range: body.range,
+            valueInputOption: "USER_ENTERED",
+            requestBody: body,
+          });
 
           if (copySheet.name == "Route") {
-            await copyFormula(ss, authClient, spreadsheetId);
+            await copyFormula(spreadsheets, authClient, spreadsheetId);
           }
         }
 
         console.log(`Trying to clear all rows in the ${copySheet.name} sheet.`);
         // Clear the source sheet
-        await ss.values.clear({
+        await spreadsheets.values.clear({
           auth: authClient,
           spreadsheetId,
           range: `${copySheet.name}!A2:${copySheet.range}`,
@@ -130,11 +118,11 @@ function archiveSheets() {
   copyInfo();
 }
 
-async function copyFormula(ss, authClient, spreadsheetId) {
+async function copyFormula(spreadsheets, authClient, spreadsheetId) {
   console.log("Trying to copy formulas to job");
 
   // copy formula from formulas to job
-  const formulaData = await ss.values.get({
+  const formulaData = await spreadsheets.values.get({
     auth: authClient,
     spreadsheetId,
     valueRenderOption: "FORMULA",
@@ -143,7 +131,7 @@ async function copyFormula(ss, authClient, spreadsheetId) {
   // Trying to update job sheet with formula value
   console.log(`Copy the formula to the Job sheet`);
   console.log(`Formula length: ${formulaData.data.values.length}`);
-  await ss.values.update({
+  await spreadsheets.values.update({
     auth: authClient,
     spreadsheetId,
     range: `Job!A2:AV`,
