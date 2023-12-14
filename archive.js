@@ -12,12 +12,14 @@ function archiveSheets() {
       { name: "Job", range: "AV" },
       { name: "Timesheet", range: "E" },
       { name: "Route", range: "H" },
+      { name: "Morning route entry", range: "H" },
       { name: "Morning Routes", range: "H" },
     ];
     const pasteSheets = {
       Timesheet: ["Archived timesheet", "Weekly timesheet"],
       Job: ["Archived Data"],
       Route: ["Archived Route"],
+      "Morning route entry":["Morning Routes"], 
       "Morning Routes": ["Route"],
     };
 
