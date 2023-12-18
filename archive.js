@@ -19,7 +19,7 @@ function archiveSheets() {
       Timesheet: ["Archived timesheet", "Weekly timesheet"],
       Job: ["Archived Data"],
       Route: ["Archived Route"],
-      "Morning route entry":["Morning Routes"], 
+      "Morning route entry": ["Morning Routes"],
       "Morning Routes": ["Route"],
     };
 
@@ -53,7 +53,13 @@ function archiveSheets() {
           }`
         );
         let copyValues = sourceData.data?.values;
-
+        if (copySheet.name === "Morning route entry") {
+          if (copyValues?.length) {
+            for (let row of copyValues) {
+              row.splice(2, 0, "");
+            }
+          }
+        }
         if (!copyValues?.length) {
           console.log(`The ${copySheet.name} has no values`);
           if (copySheet.name == "Route") {
