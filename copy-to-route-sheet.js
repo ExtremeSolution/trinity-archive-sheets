@@ -2,7 +2,6 @@ const { google } = require("googleapis");
 const sheets = google.sheets("v4");
 let { convertSheetToPDF } = require("./export-to-pdf");
 let { sendEmail } = require("./send-email");
-let { handleRouteEntry } = require("./route-entry");
 // let fs = require("fs");
 require("dotenv").config();
 
@@ -14,37 +13,36 @@ function archiveSheets() {
     /*
     copy from sheets to other sheets
     in case of updating morning sheet, we will delete all data in the morning sheet & update the new values with email formula
-
-
 */
 
     const copySheets = [
       { name: "Job", range: "AV" },
       { name: "Timesheet", range: "F" },
       { name: "Route", range: "H" },
-      { name: "Route Entry", range: "G" },
+      // { name: "Morning route entry", range: "H" },
+      // { name: "Morning Routes", range: "H" },
     ];
     const pasteSheets = {
       Job: ["Archived Data"],
       Timesheet: ["Archived timesheet", "Weekly timesheet"],
       Route: ["Archived Route"],
-      "Route Entry": ["Route"],
+      // "Morning route entry": ["Morning Routes"],
+      // "Morning Routes": ["Route"],
     };
 
     const authClient = new google.auth.JWT(
       process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
       null,
-      process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.split(String.raw`\n`).join(
-        "\n"
-      ),
+      process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
 
       [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/calendar",
       ]
     );
 
-    await authClient.authorize().catch(err => console.log("error=== ", err));
+    await authClient.authorize();
 
     try {
       for (copySheet of copySheets) {
@@ -55,7 +53,7 @@ function archiveSheets() {
         const sourceData = await spreadsheets.values.get({
           auth: authClient,
           spreadsheetId,
-          range: `${copySheet.name}!A2:${copySheet.range}`,
+          range: `${copySheet.name}!A1:${copySheet.range}`,
         });
         console.log(
           `The length data of the copy sheet: ${
@@ -63,10 +61,18 @@ function archiveSheets() {
           }`
         );
         let copyValues = sourceData.data?.values;
-        if (copySheet.name === "Route Entry") {
-          if (copyValues?.length)
-            await handleRouteEntry(spreadsheets, authClient, copyValues);
-          continue;
+        console.log("copyValues: ", JSON.stringify(copyValues));
+        // break;
+        if (copySheet.name === "Morning route entry") {
+          if (copyValues?.length) {
+            for (let i = 0; i < copyValues.length; i++) {
+              copyValues[i].splice(
+                2,
+                0,
+                `=VLOOKUP(D${i + 2}, Driver!$B$2:$D$300,3, FALSE)`
+              );
+            }
+          }
         }
         if (!copyValues?.length) {
           console.log(`The ${copySheet.name} has no values`);
@@ -101,7 +107,15 @@ function archiveSheets() {
           console.log(
             `Trying to update ${pasteSheet} with updated rows: ${sourceData?.data?.values?.length}`
           );
-
+          if (copySheet.name === "Morning route entry") {
+            await spreadsheets.values.batchClear({
+              auth: authClient,
+              spreadsheetId,
+              requestBody: {
+                ranges: [`${pasteSheet}!A2:${copySheet.range}`],
+              },
+            });
+          }
           await spreadsheets.values.append({
             auth: authClient,
             spreadsheetId,
@@ -116,7 +130,8 @@ function archiveSheets() {
         }
 
         if (copySheet.name == "Timesheet") {
-          await convertSheetToPDF(authClient);
+          let path = await convertSheetToPDF(authClient);
+          console.log("path==== ", path);
           await sendEmail();
         }
         console.log(`Trying to clear all rows in the ${copySheet.name} sheet.`);
@@ -132,35 +147,35 @@ function archiveSheets() {
         );
       }
 
-      // update formula for Route Entry and Route sheet
-      // for (let sheet of ["Route"]) {
-      //   let response = await spreadsheets.values.get({
-      //     auth: authClient,
-      //     spreadsheetId,
-      //     range: `${sheet}!A2:H`,
-      //   });
-      //   let { formulas, lastIndex } = getFormulasList(response.data?.range);
-      //   await spreadsheets.values
-      //     .update({
-      //       auth: authClient,
-      //       spreadsheetId,
-      //       valueInputOption: "USER_ENTERED",
-      //       range: `${sheet}!C2:C${lastIndex}`,
+      // update formula for morning route and Route sheet
+      for (let sheet of ["Morning Routes", "Route"]) {
+        let response = await spreadsheets.values.get({
+          auth: authClient,
+          spreadsheetId,
+          range: `${sheet}!A2:H`,
+        });
+        let { formulas, lastIndex } = getFormulasList(response.data?.range);
+        await spreadsheets.values
+          .update({
+            auth: authClient,
+            spreadsheetId,
+            valueInputOption: "USER_ENTERED",
+            range: `${sheet}!C2:C${lastIndex}`,
 
-      //       requestBody: {
-      //         values: formulas,
-      //         range: `${sheet}!C2:C${lastIndex}`,
-      //       },
-      //     })
-      //     .then(data => {
-      //       console.log();
-      //       console.log(
-      //         `Add formulas...................`,
-      //         data.data.updatedRange
-      //       );
-      //     })
-      //     .catch(err => console.log(`Cant add formulas`, err));
-      // }
+            requestBody: {
+              values: formulas,
+              range: `${sheet}!C2:C${lastIndex}`,
+            },
+          })
+          .then(data => {
+            console.log();
+            console.log(
+              `Add formulas...................`,
+              data.data.updatedRange
+            );
+          })
+          .catch(err => console.log(`Cant add formulas`, err));
+      }
     } catch (error) {
       console.error("The API returned an error: " + error);
     }
