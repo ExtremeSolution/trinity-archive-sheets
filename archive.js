@@ -109,10 +109,6 @@ function archiveSheets() {
             valueInputOption: "USER_ENTERED",
             requestBody: body,
           });
-
-          if (copySheet.name == "Job") {
-            await copyFormula(spreadsheets, authClient, spreadsheetId);
-          }
         }
 
         if (copySheet.name == "Timesheet") {
@@ -126,6 +122,10 @@ function archiveSheets() {
           spreadsheetId,
           range: `${copySheet.name}!A2:${copySheet.range}`,
         });
+
+        if (copySheet.name == "Job") {
+          await copyFormula(spreadsheets, authClient, spreadsheetId);
+        }
 
         console.log(
           "---------------------------------------------------------------"

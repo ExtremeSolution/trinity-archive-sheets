@@ -70,33 +70,35 @@ function getArchivedDataOfRouteEntry(data) {
   const currentTime = new Date().getTime();
 
   data.forEach((row, index) => {
-    const itemDate = new Date(row[3]);
-    const itemDateStr = itemDate.toDateString();
-    const itemTime = itemDate.getTime();
+    if (row[3]) {
+      const itemDate = new Date(row[3]);
+      const itemDateStr = itemDate.toDateString();
+      const itemTime = itemDate.getTime();
 
-    console.log(
-      `Index: ${index}, Item Date: ${itemDateStr}, Current Date: ${currentDateStr}`
-    );
+      console.log(
+        `Index: ${index}, Item Date: ${itemDateStr}, Current Date: ${currentDateStr}`
+      );
 
-    if (itemDateStr === currentDateStr) {
-      currentState = "currentData";
-    } else if (itemTime > currentTime) {
-      currentState = "futureData";
-    } else {
-      currentState = "previousData";
+      if (itemDateStr === currentDateStr) {
+        currentState = "currentData";
+      } else if (itemTime > currentTime) {
+        currentState = "futureData";
+      } else {
+        currentState = "previousData";
+      }
+
+      if (currentState !== previousState && previousState !== null) {
+        const rangeEndIndex = index === 0 ? 0 : index - 1;
+        addRange(previousState, rangeStartIndex, rangeEndIndex);
+        rangeStartIndex = index;
+      }
+
+      if (index === data.length - 1) {
+        addRange(currentState, rangeStartIndex, index);
+      }
+
+      previousState = currentState;
     }
-
-    if (currentState !== previousState && previousState !== null) {
-      const rangeEndIndex = index === 0 ? 0 : index - 1;
-      addRange(previousState, rangeStartIndex, rangeEndIndex);
-      rangeStartIndex = index;
-    }
-
-    if (index === data.length - 1) {
-      addRange(currentState, rangeStartIndex, index);
-    }
-
-    previousState = currentState;
   });
 
   function addRange(state, start, end) {
